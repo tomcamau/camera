@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Đếm Tôm Giống — Bộ đếm trực tiếp v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pond-deep:#07211F;
+    --pond-mid:#0E3B37;
+    --pond-panel:#123F3A;
+    --aqua-glow:#2FE7C4;
+    --aqua-dim:#1B8F79;
+    --sand:#F2E9D8;
+    --sand-dim:#B9C9C4;
+    --amber:#F5A623;
+    --coral:#FF6B5B;
+    --line:rgba(242,233,216,0.12);
+    --radius:14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%; width:100%;
+    background:var(--pond-deep);
+    color:var(--sand);
+    font-family:'Manrope',system-ui,sans-serif;
+    overflow:hidden;
+    overscroll-behavior:none;
+  }
+  #app{
+    position:fixed; inset:0;
+    display:flex; flex-direction:column;
+    background:radial-gradient(120% 100% at 50% 0%, #0C332F 0%, var(--pond-deep) 60%);
+  }
+
+  /* ===== TOP BAR ===== */
+  #topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px 8px;
+    z-index:20;
+  }
+  .brand{display:flex; align-items:center; gap:9px;}
+  .brand-mark{width:26px; height:26px; flex:none;}
+  .brand-text{font-family:'Manrope'; font-weight:800; font-size:14.5px; letter-spacing:0.01em; color:var(--sand);}
+  .brand-text small{display:block; font-weight:500; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--aqua-glow); margin-top:1px;}
+  .icon-btn{
+    width:38px; height:38px; border-radius:50%;
+    background:rgba(242,233,216,0.08); border:1px solid var(--line); color:var(--sand);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:background .15s ease, transform .1s ease;
+  }
+  .icon-btn:active{transform:scale(0.92);}
+  .icon-btn svg{width:19px; height:19px;}
+  .top-actions{display:flex; gap:8px;}
+
+  /* ===== CAMERA STAGE ===== */
+  #stage{
+    position:relative; flex:1; min-height:0;
+    margin:0 10px; border-radius:20px; overflow:hidden;
+    background:#04120F;
+    border:1px solid rgba(47,231,196,0.18);
+    box-shadow:0 0 0 1px rgba(0,0,0,0.3), 0 20px 40px -20px rgba(0,0,0,0.6);
+  }
+  video{display:none;}
+  #outCanvas{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;}
+  #scanline{
+    position:absolute; left:0; right:0; height:2px;
+    background:linear-gradient(90deg, transparent, var(--aqua-glow), transparent);
+    box-shadow:0 0 12px 2px var(--aqua-glow);
+    opacity:0.55; animation:scan 2.6s ease-in-out infinite; pointer-events:none;
+  }
+  @keyframes scan{0%{top:6%;} 50%{top:94%;} 100%{top:6%;}}
+  @media (prefers-reduced-motion:reduce){#scanline{animation:none; top:50%;}}
+  #stage.image-mode #scanline{display:none;}
+
+  .corner{position:absolute; width:22px; height:22px; border:2px solid var(--aqua-glow); opacity:0.8; pointer-events:none;}
+  .corner.tl{top:12px; left:12px; border-right:none; border-bottom:none; border-top-left-radius:8px;}
+  .corner.tr{top:12px; right:12px; border-left:none; border-bottom:none; border-top-right-radius:8px;}
+  .corner.bl{bottom:12px; left:12px; border-right:none; border-top:none; border-bottom-left-radius:8px;}
+  .corner.br{bottom:12px; right:12px; border-left:none; border-top:none; border-bottom-right-radius:8px;}
+
+  #hud{
+    position:absolute; top:12px; left:50%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center;
+    padding:8px 22px 10px; background:rgba(7,33,31,0.72); backdrop-filter:blur(6px);
+    border:1px solid rgba(47,231,196,0.35); border-radius:16px; min-width:150px;
+  }
+  #hud .count-label{font-size:9.5px; letter-spacing:0.18em; text-transform:uppercase; color:var(--aqua-glow); font-weight:600; margin-bottom:1px;}
+  #hud .count-value{font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:40px; line-height:1; color:var(--sand); font-variant-numeric:tabular-nums; text-shadow:0 0 18px rgba(47,231,196,0.45);}
+  #hud .count-unit{font-size:11px; color:var(--sand-dim); margin-top:2px; font-weight:500;}
+  #hud .count-sub{font-size:9.5px; color:var(--sand-dim); margin-top:3px; opacity:0.8;}
+
+  #statusChip{
+    position:absolute; bottom:12px; left:12px;
+    display:flex; align-items:center; gap:6px;
+    padding:6px 10px 6px 8px; background:rgba(7,33,31,0.72); backdrop-filter:blur(6px);
+    border:1px solid var(--line); border-radius:20px; font-size:11px; font-weight:600; color:var(--sand-dim);
+  }
+  #statusChip .dot{width:7px; height:7px; border-radius:50%; background:var(--coral); transition:background .2s;}
+  #statusChip.live .dot{background:var(--aqua-glow); box-shadow:0 0 6px var(--aqua-glow); animation:pulse 1.4s infinite;}
+  #statusChip.frozen .dot{background:var(--amber);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+  #densityChip{
+    position:absolute; top:12px; right:12px;
+    padding:6px 11px; border-radius:20px; font-size:10.5px; font-weight:700;
+    background:rgba(7,33,31,0.72); backdrop-filter:blur(6px); border:1px solid var(--line); color:var(--sand-dim);
+    max-width:120px; text-align:right; line-height:1.3;
+  }
+  #densityChip.warn{border-color:rgba(245,166,35,0.6); color:var(--amber);}
+
+  #imageNavChip{
+    position:absolute; top:52px; right:12px;
+    display:flex; align-items:center; gap:8px;
+    padding:5px 8px; border-radius:20px; font-size:11px; font-weight:700;
+    background:rgba(7,33,31,0.72); backdrop-filter:blur(6px); border:1px solid var(--line); color:var(--sand);
+  }
+  #imageNavChip .nav-arrow{
+    width:22px; height:22px; border-radius:50%; border:none; cursor:pointer;
+    background:rgba(242,233,216,0.12); color:var(--sand); font-size:15px; line-height:1;
+    display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  #imageNavChip .nav-arrow:disabled{opacity:0.3; cursor:default;}
+
+  #camSwitchBtn{position:absolute; bottom:12px; right:12px;}
+
+  #permOverlay{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; text-align:center; padding:28px; background:rgba(4,18,15,0.94);
+  }
+  #permOverlay svg{width:44px; height:44px; color:var(--aqua-glow);}
+  #permOverlay h3{margin:0; font-size:16px; font-weight:700;}
+  #permOverlay p{margin:0; font-size:13px; color:var(--sand-dim); line-height:1.5; max-width:300px;}
+  .btn-primary{
+    background:var(--aqua-glow); color:#052421; border:none; font-family:'Manrope'; font-weight:800; font-size:13.5px;
+    padding:11px 22px; border-radius:12px; cursor:pointer; letter-spacing:0.01em;
+  }
+  .btn-primary:active{transform:scale(0.97);}
+
+  /* ===== BOTTOM DOCK ===== */
+  #dock{z-index:20; padding:12px 14px 14px; display:flex; flex-direction:column; gap:10px;}
+  #mainActions{display:flex; align-items:center; gap:10px;}
+  #captureBtn{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:15px 16px; border-radius:16px; border:none;
+    background:var(--aqua-glow); color:#052421; font-family:'Manrope'; font-weight:800; font-size:14.5px;
+    cursor:pointer; box-shadow:0 8px 20px -8px rgba(47,231,196,0.6);
+  }
+  #captureBtn.is-live{background:transparent; color:var(--aqua-glow); border:1.5px solid var(--aqua-glow); box-shadow:none;}
+  #captureBtn:active{transform:scale(0.98);}
+  #captureBtn svg{width:18px; height:18px;}
+
+  .dock-btn{
+    width:52px; height:52px; flex:none; border-radius:16px; position:relative;
+    background:var(--pond-panel); border:1px solid var(--line); color:var(--sand);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .dock-btn:active{transform:scale(0.94);}
+  .dock-btn svg{width:20px; height:20px;}
+  .dock-btn .badge{
+    position:absolute; top:-4px; right:-4px; background:var(--amber); color:#3A2400;
+    font-size:9.5px; font-weight:800; min-width:16px; height:16px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center; padding:0 3px;
+  }
+
+  /* ===== PANEL (drawer) ===== */
+  #scrim{position:fixed; inset:0; background:rgba(4,15,13,0.55); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:29;}
+  #scrim.open{opacity:1; pointer-events:auto;}
+  .panel{
+    position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--pond-mid);
+    border-top-left-radius:22px; border-top-right-radius:22px; border-top:1px solid rgba(47,231,196,0.25);
+    transform:translateY(100%); transition:transform .28s cubic-bezier(.32,.72,0,1);
+    max-height:85vh; overflow-y:auto; padding:10px 18px calc(22px + env(safe-area-inset-bottom));
+  }
+  .panel.open{transform:translateY(0);}
+  .panel-handle{width:36px; height:4px; border-radius:3px; background:var(--line); margin:6px auto 14px;}
+  .panel h2{font-size:15px; font-weight:800; margin:0 0 2px; display:flex; align-items:center; justify-content:space-between;}
+  .panel h2 .close-x{width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(242,233,216,0.08); cursor:pointer;}
+  .panel .sub{font-size:12px; color:var(--sand-dim); margin-bottom:16px;}
+
+  .section-label{
+    font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; font-weight:800;
+    color:var(--aqua-glow); margin:0 0 10px;
+  }
+  .field{margin-bottom:18px;}
+  .field-row{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px;}
+  .field-row label{font-size:13px; font-weight:700; color:var(--sand);}
+  .field-row .val{font-family:'IBM Plex Mono'; font-size:12.5px; color:var(--aqua-glow); font-weight:600;}
+  .field .hint{font-size:11.5px; color:var(--sand-dim); margin-top:5px; line-height:1.4;}
+
+  input[type=range]{-webkit-appearance:none; width:100%; height:6px; border-radius:4px; background:rgba(242,233,216,0.14); outline:none; margin:0;}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+    background:var(--aqua-glow); border:3px solid var(--pond-mid); cursor:pointer; box-shadow:0 0 0 1px rgba(47,231,196,0.5);
+  }
+
+  .segmented{display:flex; background:rgba(242,233,216,0.06); border-radius:12px; padding:3px;}
+  .segmented button{
+    flex:1; border:none; background:transparent; color:var(--sand-dim);
+    font-family:'Manrope'; font-weight:700; font-size:12px; padding:9px 5px; border-radius:9px; cursor:pointer;
+  }
+  .segmented button.active{background:var(--aqua-glow); color:#052421;}
+  .segmented.three button{font-size:11px;}
+
+  .row-btns{display:flex; gap:10px;}
+  .btn-ghost{
+    flex:1; padding:11px; border-radius:12px; border:1px solid var(--line);
+    background:rgba(242,233,216,0.05); color:var(--sand); font-family:'Manrope'; font-weight:700; font-size:12.5px; cursor:pointer;
+  }
+  .btn-ghost:active{background:rgba(242,233,216,0.1);}
+
+  .divider{height:1px; background:var(--line); margin:16px 0;}
+
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; padding:2px 0 14px; gap:12px;}
+  .toggle-row .lab{font-size:13px; font-weight:700;}
+  .toggle-row .desc{font-size:11.5px; color:var(--sand-dim); margin-top:2px; line-height:1.4;}
+  .switch{position:relative; width:44px; height:26px; flex:none;}
+  .switch input{opacity:0; width:0; height:0;}
+  .slider-tog{position:absolute; cursor:pointer; inset:0; background:rgba(242,233,216,0.18); border-radius:20px; transition:.2s;}
+  .slider-tog:before{content:""; position:absolute; height:20px; width:20px; left:3px; top:3px; background:var(--sand); border-radius:50%; transition:.2s;}
+  .switch input:checked + .slider-tog{background:var(--aqua-glow);}
+  .switch input:checked + .slider-tog:before{transform:translateX(18px); background:#052421;}
+
+  .tag{
+    display:inline-block; font-size:9.5px; font-weight:800; letter-spacing:0.04em;
+    padding:2px 7px; border-radius:6px; background:rgba(47,231,196,0.15); color:var(--aqua-glow); margin-left:6px; vertical-align:middle;
+  }
+
+  /* ===== HISTORY PANEL ===== */
+  #historyList{display:flex; flex-direction:column; gap:8px; margin-top:4px;}
+  .hist-item{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:rgba(242,233,216,0.05); border-radius:12px; border:1px solid var(--line);}
+  .hist-item .left{display:flex; flex-direction:column;}
+  .hist-item .n{font-family:'IBM Plex Mono'; font-size:20px; font-weight:600;}
+  .hist-item .t{font-size:11px; color:var(--sand-dim); margin-top:1px;}
+  .hist-item .del{width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--coral); background:rgba(255,107,91,0.1); cursor:pointer; flex:none;}
+  #historyEmpty{text-align:center; padding:26px 0; color:var(--sand-dim); font-size:12.5px;}
+  #historyTotal{
+    display:flex; align-items:center; justify-content:space-between; padding:14px 16px; margin-bottom:14px; border-radius:14px;
+    background:linear-gradient(135deg, rgba(47,231,196,0.14), rgba(47,231,196,0.04)); border:1px solid rgba(47,231,196,0.3);
+  }
+  #historyTotal .lab{font-size:12px; color:var(--sand-dim); font-weight:600;}
+  #historyTotal .num{font-family:'IBM Plex Mono'; font-size:26px; font-weight:700; color:var(--aqua-glow);}
+
+  .estimate-box{margin-top:16px; padding:14px; border-radius:14px; background:rgba(245,166,35,0.08); border:1px solid rgba(245,166,35,0.28);}
+  .estimate-box .res{font-family:'IBM Plex Mono'; font-size:22px; font-weight:700; color:var(--amber); margin-top:8px;}
+  input[type=number]{
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+    background:rgba(242,233,216,0.06); color:var(--sand); font-family:'IBM Plex Mono'; font-size:14px; outline:none;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 26 26" fill="none">
+        <circle cx="13" cy="13" r="12" stroke="#2FE7C4" stroke-width="1.4"/>
+        <path d="M7 14c1.5-4 3.5-6 6-6s4.5 2 6 6" stroke="#2FE7C4" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="9.5" cy="12.3" r="1" fill="#2FE7C4"/>
+      </svg>
+      <div class="brand-text">Đếm Tôm Giống<small>v2 · Adaptive + Watershed</small></div>
+    </div>
+    <div class="top-actions">
+      <div class="icon-btn" id="uploadBtn" title="Tải ảnh lên đếm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      </div>
+      <input type="file" id="imageInput" accept="image/*" multiple style="display:none;">
+      <div class="icon-btn" id="historyBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+      </div>
+      <div class="icon-btn" id="settingsBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009.09 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9.09a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <video id="video" playsinline autoplay muted></video>
+    <canvas id="outCanvas"></canvas>
+    <div id="scanline"></div>
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+
+    <div id="hud">
+      <div class="count-label">Số lượng</div>
+      <div class="count-value" id="countValue">0</div>
+      <div class="count-unit">con giống</div>
+      <div class="count-sub" id="countSub">&nbsp;</div>
+    </div>
+
+    <div id="densityChip">Mật độ: —</div>
+    <div id="imageNavChip" style="display:none;">
+      <button class="nav-arrow" id="prevImgBtn">‹</button>
+      <span id="imageNavLabel">Ảnh 1/1</span>
+      <button class="nav-arrow" id="nextImgBtn">›</button>
+    </div>
+    <div id="statusChip"><div class="dot"></div><span id="statusText">Đang khởi động…</span></div>
+
+    <div class="icon-btn" id="camSwitchBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+    </div>
+
+    <div id="permOverlay" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <h3 id="permTitle">Cần quyền truy cập camera</h3>
+      <p id="permText">Ứng dụng cần dùng camera để đếm tôm giống trực tiếp. Hãy cho phép truy cập camera và đưa khay/bát tôm giống vào khung hình.</p>
+      <button class="btn-primary" id="permRetryBtn">Bật camera</button>
+    </div>
+  </div>
+
+  <div id="dock">
+    <div id="mainActions">
+      <div class="dock-btn" id="thresholdQuickBtn" title="Cài đặt đếm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-11"/><path d="M12 6V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><circle cx="4" cy="12" r="2"/><circle cx="12" cy="8" r="2"/><circle cx="20" cy="14" r="2"/></svg>
+      </div>
+      <button id="captureBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
+        <span id="captureBtnText">Chụp &amp; Đếm</span>
+      </button>
+      <div class="dock-btn" id="saveHistBtn" title="Lưu kết quả (lô)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="scrim"></div>
+
+<!-- SETTINGS PANEL -->
+<div class="panel" id="settingsPanel">
+  <div class="panel-handle"></div>
+  <h2>Cài đặt đếm <span class="close-x" id="closeSettings">✕</span></h2>
+  <div class="sub">Thuật toán v2: ngưỡng thích ứng + tách cụm theo distance-transform (kiểu watershed), chính xác hơn cách chia diện tích đơn thuần.</div>
+
+  <div class="section-label">Nhận diện tôm / nền</div>
+  <div class="field">
+    <div class="field-row"><label>Chế độ nền</label></div>
+    <div class="segmented" id="modeSeg">
+      <button class="active" data-mode="dark-on-light">Tôm tối · nền sáng</button>
+      <button data-mode="light-on-dark">Tôm sáng · nền tối</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <div class="field-row"><label>Phương pháp phân ngưỡng</label></div>
+    <div class="segmented" id="threshMethodSeg">
+      <button class="active" data-method="adaptive">Thích ứng (khuyên dùng)</button>
+      <button data-method="global">Cố định</button>
+    </div>
+    <div class="hint">Thích ứng tự bù sáng lệch giữa các vùng trong khay — nên dùng khi ánh sáng không hoàn toàn đều.</div>
+  </div>
+
+  <div class="field" id="adaptiveField">
+    <div class="field-row"><label>Độ nhạy viền</label><span class="val" id="adaptiveCVal">8</span></div>
+    <input type="range" id="adaptiveCSlider" min="1" max="40" value="8">
+    <div class="hint">Tăng nếu bỏ sót tôm mờ viền nhạt; giảm nếu đang bắt nhầm vệt nước, gợn sáng.</div>
+  </div>
+
+  <div class="field" id="globalField" style="display:none;">
+    <div class="field-row"><label>Ngưỡng cố định</label><span class="val" id="thresholdVal">120</span></div>
+    <input type="range" id="thresholdSlider" min="10" max="245" value="120">
+  </div>
+
+  <div class="field">
+    <div class="field-row"><label>Kích thước nhiễu tối thiểu</label><span class="val" id="minAreaVal">6 px²</span></div>
+    <input type="range" id="minAreaSlider" min="1" max="60" value="6">
+    <div class="hint">Loại các đốm quá nhỏ (bọt khí, hạt bẩn) khỏi kết quả đếm.</div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">Làm sạch ảnh</div>
+
+  <div class="toggle-row">
+    <div>
+      <div class="lab">Làm sạch nhiễu hình thái<span class="tag">Morphology</span></div>
+      <div class="desc">Xoá điểm nhiễu li ti và cắt cầu nối mỏng giữa 2 con chạm nhẹ nhau trước khi đếm.</div>
+    </div>
+    <div class="switch"><input type="checkbox" id="morphToggle" checked><span class="slider-tog"></span></div>
+  </div>
+
+  <div class="toggle-row">
+    <div>
+      <div class="lab">Lọc hình bọt khí</div>
+      <div class="desc">Loại các đốm nhỏ, tròn đều (thường là bọt khí) dù đúng kích thước — tôm giống thường có hình thon dài.</div>
+    </div>
+    <div class="switch"><input type="checkbox" id="bubbleToggle"><span class="slider-tog"></span></div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">Tách tôm dính nhau</div>
+
+  <div class="field">
+    <div class="segmented three" id="splitSeg">
+      <button class="active" data-split="watershed">Watershed (chính xác)</button>
+      <button data-split="area">Ước lượng diện tích</button>
+      <button data-split="off">Tắt (đếm 1 cụm=1)</button>
+    </div>
+    <div class="hint">Watershed dò tâm từng con trong cụm dính bằng bản đồ khoảng cách — chính xác hơn cách chia diện tích cũ khi tôm chồng lấn.</div>
+  </div>
+
+  <div class="field" id="singleAreaField">
+    <div class="field-row"><label>Diện tích trung bình 1 con</label><span class="val" id="singleAreaVal">Tự động</span></div>
+    <input type="range" id="singleAreaSlider" min="0" max="400" value="0">
+    <div class="row-btns" style="margin-top:8px;">
+      <button class="btn-ghost" id="autoCalibrateBtn">↻ Tự động ước tính từ khung hình hiện tại</button>
+    </div>
+    <div class="hint">Để 0 = tự động lấy trung vị các đốm đơn đang thấy. Chỉnh tay nếu tôm của bạn lớn/nhỏ hơn mức trung bình.</div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">Hiển thị</div>
+
+  <div class="toggle-row">
+    <div>
+      <div class="lab">Làm mượt số đếm</div>
+      <div class="desc">Lấy trung vị 5 khung hình gần nhất thay vì 1 khung đơn lẻ — giảm nhảy số do gợn nước, rung tay.</div>
+    </div>
+    <div class="switch"><input type="checkbox" id="smoothToggle" checked><span class="slider-tog"></span></div>
+  </div>
+
+  <div class="toggle-row">
+    <div>
+      <div class="lab">Hiện khung nhận diện</div>
+      <div class="desc">Vẽ chấm quanh mỗi con được đếm trên hình.</div>
+    </div>
+    <div class="switch"><input type="checkbox" id="overlayToggle" checked><span class="slider-tog"></span></div>
+  </div>
+
+  <div class="row-btns">
+    <button class="btn-ghost" id="resetSettingsBtn">Đặt lại mặc định</button>
+  </div>
+</div>
+
+<!-- HISTORY PANEL -->
+<div class="panel" id="historyPanel">
+  <div class="panel-handle"></div>
+  <h2>Đếm theo lô <span class="close-x" id="closeHistory">✕</span></h2>
+  <div class="sub">Mỗi lần lưu = 1 bát/mẻ đã đếm. Cộng dồn toàn bộ để ra tổng đàn thật (đếm hết theo lô) — hoặc dùng hệ số nhân nếu đang lấy mẫu suy rộng.</div>
+
+  <div id="historyTotal">
+    <div><div class="lab">Tổng đã đếm (lô)</div></div>
+    <div class="num" id="historyTotalNum">0 con</div>
+  </div>
+
+  <div class="row-btns" style="margin-bottom:16px;">
+    <button class="btn-ghost" id="newBatchBtn">↺ Bắt đầu lô mới (reset về 0)</button>
+  </div>
+
+  <div id="historyList"></div>
+  <div id="historyEmpty">Chưa có bát nào được lưu. Đếm 1 bát rồi nhấn nút 💾 ở màn hình chính.</div>
+
+  <div class="estimate-box">
+    <div class="field-row"><label>Ước tính tổng đàn từ mẫu (tuỳ chọn)</label></div>
+    <div class="hint" style="margin-bottom:10px;">Chỉ dùng nếu bạn đang lấy mẫu suy rộng thay vì đếm hết. Nhập hệ số = (tổng thể tích bể ÷ thể tích mẫu).</div>
+    <input type="number" id="multiplierInput" value="1" min="1" step="1">
+    <div class="res" id="estimateResult">≈ 0 con</div>
+  </div>
+
+  <div class="row-btns" style="margin-top:16px;">
+    <button class="btn-ghost" id="clearHistBtn">Xoá toàn bộ lịch sử</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ==================== State ====================
+  const state = {
+    stream: null,
+    facingMode: 'environment',
+    live: true,
+    mode: 'dark-on-light',
+    threshMethod: 'adaptive',   // 'adaptive' | 'global'
+    adaptiveC: 8,
+    adaptiveRadiusFrac: 0.05,   // box radius as fraction of proc width
+    threshold: 120,             // global mode
+    minArea: 6,
+    morphCleanup: true,
+    bubbleFilter: false,
+    splitMethod: 'watershed',   // 'watershed' | 'area' | 'off'
+    singleArea: 0,              // 0 = auto
+    smoothCount: true,
+    showOverlay: true,
+    currentCount: 0,
+    displayCount: 0,
+    lastBlobs: [],
+    recentTotals: [],
+    inputMode: 'camera',        // 'camera' | 'image'
+    imageQueue: [],              // [{url}]
+    imageIndex: 0,
+    currentImgEl: null,
+    history: [],                // {count, time}
+  };
+
+  const PROC_W = 320;
+  const WATERSHED_AREA_CAP = 6000; // safety cap (proc px) to avoid runaway cost on huge blobs
+
+  // ==================== DOM refs ====================
+  const video = document.getElementById('video');
+  const outCanvas = document.getElementById('outCanvas');
+  const outCtx = outCanvas.getContext('2d');
+  const procCanvas = document.createElement('canvas');
+  const procCtx = procCanvas.getContext('2d', {willReadFrequently:true});
+
+  const countValueEl = document.getElementById('countValue');
+  const countSubEl = document.getElementById('countSub');
+  const densityChip = document.getElementById('densityChip');
+  const imageNavChip = document.getElementById('imageNavChip');
+  const imageNavLabel = document.getElementById('imageNavLabel');
+  const prevImgBtn = document.getElementById('prevImgBtn');
+  const nextImgBtn = document.getElementById('nextImgBtn');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const imageInput = document.getElementById('imageInput');
+  const statusChip = document.getElementById('statusChip');
+  const statusText = document.getElementById('statusText');
+  const permOverlay = document.getElementById('permOverlay');
+  const permRetryBtn = document.getElementById('permRetryBtn');
+  const permTitle = document.getElementById('permTitle');
+  const permText = document.getElementById('permText');
+
+  const captureBtn = document.getElementById('captureBtn');
+  const captureBtnText = document.getElementById('captureBtnText');
+  const camSwitchBtn = document.getElementById('camSwitchBtn');
+  const saveHistBtn = document.getElementById('saveHistBtn');
+  const thresholdQuickBtn = document.getElementById('thresholdQuickBtn');
+
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const closeSettings = document.getElementById('closeSettings');
+  const historyBtn = document.getElementById('historyBtn');
+  const historyPanel = document.getElementById('historyPanel');
+  const closeHistory = document.getElementById('closeHistory');
+  const scrim = document.getElementById('scrim');
+
+  const modeSeg = document.getElementById('modeSeg');
+  const threshMethodSeg = document.getElementById('threshMethodSeg');
+  const adaptiveField = document.getElementById('adaptiveField');
+  const globalField = document.getElementById('globalField');
+  const adaptiveCSlider = document.getElementById('adaptiveCSlider');
+  const adaptiveCVal = document.getElementById('adaptiveCVal');
+  const thresholdSlider = document.getElementById('thresholdSlider');
+  const thresholdVal = document.getElementById('thresholdVal');
+  const minAreaSlider = document.getElementById('minAreaSlider');
+  const minAreaVal = document.getElementById('minAreaVal');
+  const morphToggle = document.getElementById('morphToggle');
+  const bubbleToggle = document.getElementById('bubbleToggle');
+  const splitSeg = document.getElementById('splitSeg');
+  const singleAreaField = document.getElementById('singleAreaField');
+  const singleAreaSlider = document.getElementById('singleAreaSlider');
+  const singleAreaVal = document.getElementById('singleAreaVal');
+  const autoCalibrateBtn = document.getElementById('autoCalibrateBtn');
+  const smoothToggle = document.getElementById('smoothToggle');
+  const overlayToggle = document.getElementById('overlayToggle');
+  const resetSettingsBtn = document.getElementById('resetSettingsBtn');
+
+  const historyList = document.getElementById('historyList');
+  const historyEmpty = document.getElementById('historyEmpty');
+  const historyTotalNum = document.getElementById('historyTotalNum');
+  const multiplierInput = document.getElementById('multiplierInput');
+  const estimateResult = document.getElementById('estimateResult');
+  const clearHistBtn = document.getElementById('clearHistBtn');
+  const newBatchBtn = document.getElementById('newBatchBtn');
+
+  // ==================== Panels ====================
+  function openPanel(panel){ panel.classList.add('open'); scrim.classList.add('open'); }
+  function closeAllPanels(){
+    settingsPanel.classList.remove('open');
+    historyPanel.classList.remove('open');
+    scrim.classList.remove('open');
+  }
+  settingsBtn.onclick = ()=>openPanel(settingsPanel);
+  closeSettings.onclick = closeAllPanels;
+  historyBtn.onclick = ()=>{ renderHistory(); openPanel(historyPanel); };
+  closeHistory.onclick = closeAllPanels;
+  scrim.onclick = closeAllPanels;
+  thresholdQuickBtn.onclick = ()=>openPanel(settingsPanel);
+
+  // ==================== Camera ====================
+  async function startCamera(){
+    permOverlay.style.display = 'none';
+    statusText.textContent = 'Đang khởi động…';
+    try{
+      if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); }
+      const constraints = { video:{ facingMode: state.facingMode, width:{ideal:1280}, height:{ideal:720} }, audio:false };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      state.stream = stream;
+      video.srcObject = stream;
+      await video.play();
+      resizeCanvases();
+      state.live = true;
+      updateCaptureBtnUI();
+      setStatus('live', 'Đang đếm trực tiếp');
+      requestAnimationFrame(renderLoop);
+    }catch(err){
+      console.error(err);
+      showPermError(err);
+    }
+  }
+
+  function showPermError(err){
+    permOverlay.style.display = 'flex';
+    if(err && err.name === 'NotAllowedError'){
+      permTitle.textContent = 'Camera bị chặn quyền truy cập';
+      permText.textContent = 'Bạn đã từ chối quyền camera. Vào cài đặt trình duyệt để cấp lại quyền, sau đó nhấn "Bật camera".';
+    } else if(err && err.name === 'NotFoundError'){
+      permTitle.textContent = 'Không tìm thấy camera';
+      permText.textContent = 'Thiết bị này không có camera khả dụng, hoặc camera đang được ứng dụng khác sử dụng.';
+    } else {
+      permTitle.textContent = 'Cần quyền truy cập camera';
+      permText.textContent = 'Ứng dụng cần dùng camera để đếm tôm giống trực tiếp. Hãy cho phép truy cập camera và đưa khay/bát tôm giống vào khung hình.';
+    }
+    setStatus('off', 'Chưa có camera');
+  }
+
+  permRetryBtn.onclick = startCamera;
+
+  function resizeCanvases(){
+    const rect = outCanvas.parentElement.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    outCanvas.width = Math.round(rect.width * dpr);
+    outCanvas.height = Math.round(rect.height * dpr);
+  }
+  window.addEventListener('resize', resizeCanvases);
+
+  function setStatus(kind, text){
+    statusChip.classList.remove('live','frozen');
+    if(kind==='live') statusChip.classList.add('live');
+    if(kind==='frozen') statusChip.classList.add('frozen');
+    statusText.textContent = text;
+  }
+
+  // ==================== Image utilities ====================
+  function buildIntegral(gray, w, h){
+    const integral = new Float64Array((w+1)*(h+1));
+    for(let y=0;y<h;y++){
+      let rowSum = 0;
+      const rowBase = (y+1)*(w+1);
+      const prevRowBase = y*(w+1);
+      for(let x=0;x<w;x++){
+        rowSum += gray[y*w+x];
+        integral[rowBase+x+1] = integral[prevRowBase+x+1] + rowSum;
+      }
+    }
+    return integral;
+  }
+  function boxSum(integral, w, h, x0, y0, x1, y1){
+    x0 = Math.max(0,x0); y0 = Math.max(0,y0);
+    x1 = Math.min(w-1,x1); y1 = Math.min(h-1,y1);
+    const stride = w+1;
+    const A = integral[y0*stride+x0];
+    const B = integral[y0*stride+x1+1];
+    const C = integral[(y1+1)*stride+x0];
+    const D = integral[(y1+1)*stride+x1+1];
+    return D - B - C + A;
+  }
+
+  function erode3x3(bin, w, h){
+    const out = new Uint8Array(w*h);
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const idx = y*w+x;
+        if(!bin[idx]){ continue; }
+        let keep = 1;
+        for(let dy=-1; dy<=1 && keep; dy++){
+          for(let dx=-1; dx<=1; dx++){
+            const nx=x+dx, ny=y+dy;
+            if(nx<0||ny<0||nx>=w||ny>=h||!bin[ny*w+nx]){ keep=0; break; }
+          }
+        }
+        out[idx] = keep;
+      }
+    }
+    return out;
+  }
+  function dilate3x3(bin, w, h){
+    const out = new Uint8Array(w*h);
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const idx = y*w+x;
+        if(bin[idx]){ out[idx]=1; continue; }
+        let on = 0;
+        for(let dy=-1; dy<=1 && !on; dy++){
+          for(let dx=-1; dx<=1; dx++){
+            const nx=x+dx, ny=y+dy;
+            if(nx>=0&&ny>=0&&nx<w&&ny<h&&bin[ny*w+nx]){ on=1; break; }
+          }
+        }
+        out[idx] = on;
+      }
+    }
+    return out;
+  }
+  function morphOpen(bin, w, h){
+    return dilate3x3(erode3x3(bin, w, h), w, h);
+  }
+
+  function median(arr){
+    if(!arr.length) return 0;
+    const s = arr.slice().sort((a,b)=>a-b);
+    const mid = Math.floor(s.length/2);
+    return s.length % 2 ? s[mid] : (s[mid-1]+s[mid])/2;
+  }
+
+  // ==================== Connected components (with labels) ====================
+  function findBlobsLabeled(binary, width, height, minArea){
+    const labels = new Int32Array(width*height); // 0 = background
+    const stack = new Int32Array(width*height);
+    const blobs = []; // index 0 unused; blobs[id-1] = info
+    let nextId = 1;
+    for(let start=0; start<width*height; start++){
+      if(binary[start] && labels[start]===0){
+        const id = nextId++;
+        let sp=0;
+        stack[sp++]=start;
+        labels[start]=id;
+        let area=0,sumX=0,sumY=0,minX=width,maxX=0,minY=height,maxY=0;
+        while(sp>0){
+          const idx = stack[--sp];
+          const x = idx % width, y = (idx / width) | 0;
+          area++; sumX+=x; sumY+=y;
+          if(x<minX)minX=x; if(x>maxX)maxX=x;
+          if(y<minY)minY=y; if(y>maxY)maxY=y;
+          if(x>0){ const nb=idx-1; if(binary[nb] && labels[nb]===0){labels[nb]=id; stack[sp++]=nb;} }
+          if(x<width-1){ const nb=idx+1; if(binary[nb] && labels[nb]===0){labels[nb]=id; stack[sp++]=nb;} }
+          if(y>0){ const nb=idx-width; if(binary[nb] && labels[nb]===0){labels[nb]=id; stack[sp++]=nb;} }
+          if(y<height-1){ const nb=idx+width; if(binary[nb] && labels[nb]===0){labels[nb]=id; stack[sp++]=nb;} }
+        }
+        blobs.push({id, area, cx:sumX/area, cy:sumY/area, minX,maxX,minY,maxY});
+      }
+    }
+    // filter by minArea (keep labels array consistent enough — filtered blobs simply excluded from output list)
+    const kept = blobs.filter(b=>b.area>=minArea);
+    return { labels, blobs: kept };
+  }
+
+  // ==================== Distance transform (chamfer 2-pass) ====================
+  function distanceTransform(mask, w, h){
+    const BIG = 1e6;
+    const dist = new Float32Array(w*h);
+    for(let i=0;i<w*h;i++) dist[i] = mask[i] ? BIG : 0;
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const idx=y*w+x;
+        if(!mask[idx]) continue;
+        let m = dist[idx];
+        if(x>0) m = Math.min(m, dist[idx-1]+1);
+        if(y>0) m = Math.min(m, dist[idx-w]+1);
+        if(x>0&&y>0) m = Math.min(m, dist[idx-w-1]+1.4142);
+        if(x<w-1&&y>0) m = Math.min(m, dist[idx-w+1]+1.4142);
+        dist[idx]=m;
+      }
+    }
+    for(let y=h-1;y>=0;y--){
+      for(let x=w-1;x>=0;x--){
+        const idx=y*w+x;
+        if(!mask[idx]) continue;
+        let m = dist[idx];
+        if(x<w-1) m = Math.min(m, dist[idx+1]+1);
+        if(y<h-1) m = Math.min(m, dist[idx+w]+1);
+        if(x<w-1&&y<h-1) m = Math.min(m, dist[idx+w+1]+1.4142);
+        if(x>0&&y<h-1) m = Math.min(m, dist[idx+w-1]+1.4142);
+        dist[idx]=m;
+      }
+    }
+    return dist;
+  }
+
+  // Marker counting via distance-transform local maxima (watershed-style seed count)
+  function countSeedsInBlob(labels, blobId, minX, maxX, minY, maxY, w, singleArea){
+    const bw = maxX-minX+1, bh = maxY-minY+1;
+    const mask = new Uint8Array(bw*bh);
+    for(let y=minY;y<=maxY;y++){
+      const rowBase = y*w;
+      for(let x=minX;x<=maxX;x++){
+        if(labels[rowBase+x]===blobId) mask[(y-minY)*bw+(x-minX)]=1;
+      }
+    }
+    const dist = distanceTransform(mask, bw, bh);
+    const pts = [];
+    for(let i=0;i<bw*bh;i++){ if(mask[i]) pts.push(i); }
+    pts.sort((a,b)=>dist[b]-dist[a]);
+    const rSep = Math.max(1.4, Math.sqrt(Math.max(singleArea,4)/Math.PI)*0.85);
+    const seeds = [];
+    for(let k=0;k<pts.length;k++){
+      const idx = pts[k];
+      const x = idx % bw, y = (idx/bw)|0;
+      let ok = true;
+      for(let s=0;s<seeds.length;s++){
+        const dx=seeds[s].x-x, dy=seeds[s].y-y;
+        if(dx*dx+dy*dy < rSep*rSep){ ok=false; break; }
+      }
+      if(ok) seeds.push({x:x+minX, y:y+minY});
+      if(seeds.length>60) break;
+    }
+    return seeds.length ? seeds : [{x:(minX+maxX)/2, y:(minY+maxY)/2}];
+  }
+
+  // ==================== Core detection pipeline ====================
+  function computeGrayscale(sourceEl, pw, ph){
+    procCanvas.width = pw; procCanvas.height = ph;
+    procCtx.drawImage(sourceEl, 0, 0, pw, ph);
+    const imgData = procCtx.getImageData(0,0,pw,ph);
+    const data = imgData.data;
+    const n = pw*ph;
+    const gray = new Float32Array(n);
+    for(let i=0,p=0; i<n; i++, p+=4){
+      gray[i] = 0.299*data[p] + 0.587*data[p+1] + 0.114*data[p+2];
+    }
+    return gray;
+  }
+
+  function computeBinary(gray, pw, ph){
+    const n = pw*ph;
+    const binary = new Uint8Array(n);
+    const invert = state.mode === 'light-on-dark';
+    if(state.threshMethod === 'adaptive'){
+      const integral = buildIntegral(gray, pw, ph);
+      const r = Math.max(4, Math.round(pw * state.adaptiveRadiusFrac));
+      const C = state.adaptiveC;
+      for(let y=0;y<ph;y++){
+        for(let x=0;x<pw;x++){
+          const idx = y*pw+x;
+          const sum = boxSum(integral, pw, ph, x-r, y-r, x+r, y+r);
+          const count = (Math.min(pw-1,x+r)-Math.max(0,x-r)+1) * (Math.min(ph-1,y+r)-Math.max(0,y-r)+1);
+          const localMean = sum / count;
+          const lum = gray[idx];
+          const on = invert ? (lum > localMean + C) : (lum < localMean - C);
+          binary[idx] = on ? 1 : 0;
+        }
+      }
+    } else {
+      const thr = state.threshold;
+      for(let i=0;i<n;i++){
+        const lum = gray[i];
+        const on = invert ? (lum > thr) : (lum < thr);
+        binary[i] = on ? 1 : 0;
+      }
+    }
+    return binary;
+  }
+
+  function runDetection(sourceEl){
+    const vw = sourceEl.videoWidth || sourceEl.naturalWidth || sourceEl.width;
+    const vh = sourceEl.videoHeight || sourceEl.naturalHeight || sourceEl.height;
+    if(!vw || !vh) return null;
+    const scale = PROC_W / vw;
+    const pw = PROC_W;
+    const ph = Math.max(1, Math.round(vh*scale));
+
+    let gray = computeGrayscale(sourceEl, pw, ph);
+    let binary = computeBinary(gray, pw, ph);
+    if(state.morphCleanup){
+      binary = morphOpen(binary, pw, ph);
+    }
+    const { labels, blobs } = findBlobsLabeled(binary, pw, ph, state.minArea);
+
+    // shape (bubble) filter
+    let filtered = blobs;
+    if(state.bubbleFilter){
+      filtered = blobs.filter(b=>{
+        const w = (b.maxX-b.minX+1), h = (b.maxY-b.minY+1);
+        const aspect = Math.max(w,h)/Math.max(1,Math.min(w,h));
+        const smallish = b.area < Math.max(state.minArea*4, 40);
+        return !(aspect < 1.2 && smallish);
+      });
+    }
+
+    // determine single-shrimp area estimate
+    let singleArea = state.singleArea;
+    if(!singleArea || singleArea<=0){
+      singleArea = median(filtered.map(b=>b.area)) || 0;
+    }
+
+    let total = 0;
+    const annotated = [];
+    filtered.forEach(b=>{
+      if(state.splitMethod === 'off' || !singleArea || singleArea<=0){
+        total += 1;
+        annotated.push(Object.assign({}, b, {count:1, seeds:[{x:b.cx,y:b.cy}]}));
+        return;
+      }
+      const isCluster = b.area > singleArea*1.3;
+      if(!isCluster){
+        total += 1;
+        annotated.push(Object.assign({}, b, {count:1, seeds:[{x:b.cx,y:b.cy}]}));
+        return;
+      }
+      if(state.splitMethod === 'watershed' && b.area <= WATERSHED_AREA_CAP){
+        const seeds = countSeedsInBlob(labels, b.id, b.minX, b.maxX, b.minY, b.maxY, pw, singleArea);
+        total += seeds.length;
+        annotated.push(Object.assign({}, b, {count:seeds.length, seeds}));
+      } else {
+        const c = Math.max(1, Math.round(b.area/singleArea));
+        total += c;
+        annotated.push(Object.assign({}, b, {count:c, seeds:[{x:b.cx,y:b.cy}]}));
+      }
+    });
+
+    // rough density: fraction of proc pixels that are "on"
+    let onCount = 0;
+    for(let i=0;i<binary.length;i++) onCount += binary[i];
+    const density = onCount / binary.length;
+
+    return { annotated, singleArea, pw, ph, scaleBack: 1/scale, density, rawBlobCount: filtered.length };
+  }
+
+  // ==================== Render loop ====================
+  let lastProcessTime = 0;
+  const PROCESS_INTERVAL = 280;
+
+  function renderLoop(ts){
+    if(!state.live || state.inputMode !== 'camera') return;
+    if(!video.videoWidth){ requestAnimationFrame(renderLoop); return; }
+    drawSourceCover(video, video.videoWidth, video.videoHeight, state.facingMode === 'user');
+    if(!lastProcessTime || ts - lastProcessTime >= PROCESS_INTERVAL){
+      lastProcessTime = ts;
+      const res = runDetection(video);
+      if(res){
+        state._lastProc = res;
+        state.lastBlobs = res.annotated;
+        const total = res.annotated.reduce((s,b)=>s+b.count,0);
+        state.currentCount = total;
+        pushRecentTotal(total);
+        updateCountDisplay();
+        updateDensityChip(res.density);
+      }
+    }
+    if(state.showOverlay) drawOverlay();
+    requestAnimationFrame(renderLoop);
+  }
+
+  // Process a single static image (upload mode) — one-shot detection, no continuous loop
+  function processCurrentImage(){
+    const img = state.currentImgEl;
+    if(!img) return;
+    drawSourceCover(img, img.naturalWidth, img.naturalHeight, false);
+    const res = runDetection(img);
+    if(res){
+      state._lastProc = res;
+      state.lastBlobs = res.annotated;
+      const total = res.annotated.reduce((s,b)=>s+b.count,0);
+      state.currentCount = total;
+      state.recentTotals = [total]; // reset smoothing so a single photo shows its true count
+      updateCountDisplay();
+      updateDensityChip(res.density);
+    }
+    if(state.showOverlay) drawOverlay();
+  }
+
+  function pushRecentTotal(t){
+    state.recentTotals.push(t);
+    if(state.recentTotals.length>5) state.recentTotals.shift();
+  }
+
+  function updateCountDisplay(){
+    const smoothed = (state.smoothCount && state.inputMode==='camera') ? Math.round(median(state.recentTotals)) : state.currentCount;
+    state.displayCount = smoothed;
+    countValueEl.textContent = smoothed;
+    if(state.inputMode === 'image'){
+      countSubEl.textContent = 'Ảnh ' + (state.imageIndex+1) + '/' + state.imageQueue.length;
+    } else {
+      countSubEl.textContent = state.smoothCount ? 'trung vị 5 khung' : 'khung hiện tại';
+    }
+  }
+
+  function updateDensityChip(density){
+    const pct = Math.round(density*100);
+    densityChip.textContent = 'Mật độ: ' + pct + '%';
+    densityChip.classList.toggle('warn', density > 0.28);
+    if(density > 0.28){
+      densityChip.textContent = 'Mật độ: ' + pct + '% — nên pha loãng';
+    }
+  }
+
+  function drawSourceCover(sourceEl, vw, vh, mirror){
+    const cw = outCanvas.width, ch = outCanvas.height;
+    if(!vw || !vh) return;
+    const scale = Math.max(cw/vw, ch/vh);
+    const dw = vw*scale, dh = vh*scale;
+    const dx = (cw-dw)/2, dy = (ch-dh)/2;
+    outCtx.save();
+    if(mirror){
+      outCtx.translate(cw,0); outCtx.scale(-1,1);
+      outCtx.drawImage(sourceEl, cw-dw-dx, dy, dw, dh);
+    } else {
+      outCtx.drawImage(sourceEl, dx, dy, dw, dh);
+    }
+    outCtx.restore();
+    state._lastDraw = {cw,ch,vw,vh,scale,dx,dy,mirror};
+  }
+
+  function drawOverlay(){
+    const proc = state._lastProc;
+    const draw = state._lastDraw;
+    if(!proc || !draw) return;
+    outCtx.save();
+    outCtx.lineWidth = Math.max(1.5, draw.scale*0.6);
+    proc.annotated.forEach(b=>{
+      const isCluster = b.count > 1;
+      b.seeds.forEach(seed=>{
+        const vx = seed.x * proc.scaleBack;
+        const vy = seed.y * proc.scaleBack;
+        let cx;
+        if(draw.mirror){
+          cx = draw.cw - (vx*draw.scale + draw.dx);
+        } else {
+          cx = vx*draw.scale + draw.dx;
+        }
+        const cy = vy*draw.scale + draw.dy;
+        const baseR = Math.sqrt(Math.max(proc.singleArea,4)/Math.PI) * proc.scaleBack * draw.scale;
+        const r = Math.max(5, baseR*0.9);
+        outCtx.beginPath();
+        outCtx.arc(cx, cy, r, 0, Math.PI*2);
+        outCtx.strokeStyle = isCluster ? 'rgba(245,166,35,0.95)' : 'rgba(47,231,196,0.95)';
+        outCtx.stroke();
+      });
+      if(isCluster && b.seeds.length){
+        const first = b.seeds[0];
+        const vx = first.x * proc.scaleBack, vy = first.y * proc.scaleBack;
+        let cx = draw.mirror ? draw.cw - (vx*draw.scale+draw.dx) : vx*draw.scale+draw.dx;
+        const cy = vy*draw.scale + draw.dy;
+        outCtx.font = '600 11px IBM Plex Mono, monospace';
+        outCtx.fillStyle = 'rgba(245,166,35,0.95)';
+        outCtx.textAlign = 'center';
+        outCtx.fillText('×'+b.count, cx, cy - 14);
+      }
+    });
+    outCtx.restore();
+  }
+
+  // ==================== Capture toggle ====================
+  function updateCaptureBtnUI(){
+    if(state.live){
+      captureBtn.classList.remove('is-live');
+      captureBtnText.textContent = 'Chụp & Đếm';
+      setStatus('live', 'Đang đếm trực tiếp');
+    } else {
+      captureBtn.classList.add('is-live');
+      captureBtnText.textContent = 'Tiếp tục trực tiếp';
+      setStatus('frozen', 'Đã dừng — kết quả cố định');
+    }
+  }
+  captureBtn.onclick = ()=>{
+    if(state.inputMode === 'image'){
+      saveCurrentToHistory();
+      if(state.imageIndex < state.imageQueue.length-1){
+        loadImageAtIndex(state.imageIndex+1);
+      } else {
+        setStatus('frozen', 'Đã đếm hết danh sách ảnh');
+      }
+      return;
+    }
+    if(state.live){ state.live = false; updateCaptureBtnUI(); }
+    else { state.live = true; updateCaptureBtnUI(); requestAnimationFrame(renderLoop); }
+  };
+
+  autoCalibrateBtn.onclick = ()=>{
+    const singles = state.lastBlobs.filter(b=>b.count===1).map(b=>b.area);
+    const m = median(singles.length ? singles : state.lastBlobs.map(b=>b.area));
+    if(m > 0){
+      state.singleArea = m;
+      singleAreaSlider.value = Math.min(400, Math.round(m));
+      singleAreaVal.textContent = Math.round(m) + ' px²';
+    }
+    afterSettingsChange();
+  };
+
+  // Re-run detection on the current still image whenever a setting changes
+  function afterSettingsChange(){
+    if(state.inputMode === 'image' && state.currentImgEl){ processCurrentImage(); }
+  }
+
+  // ==================== Upload / image mode ====================
+  uploadBtn.onclick = ()=>{ imageInput.click(); };
+
+  imageInput.onchange = ()=>{
+    const files = Array.from(imageInput.files || []).filter(f=>f.type.startsWith('image/'));
+    if(!files.length) return;
+    // release any previous object URLs
+    state.imageQueue.forEach(q=>{ try{ URL.revokeObjectURL(q.url); }catch(e){} });
+    state.imageQueue = files.map(f=>({ url: URL.createObjectURL(f), name: f.name }));
+    state.imageIndex = 0;
+    enterImageMode();
+    loadImageAtIndex(0);
+    imageInput.value = '';
+  };
+
+  function enterImageMode(){
+    state.inputMode = 'image';
+    state.live = false;
+    document.getElementById('stage').classList.add('image-mode');
+    imageNavChip.style.display = state.imageQueue.length > 1 ? 'flex' : 'none';
+    captureBtnText.textContent = 'Lưu & ảnh tiếp theo';
+    captureBtn.classList.remove('is-live');
+    saveHistBtn.style.display = 'none';
+    camSwitchBtn.title = 'Quay lại camera trực tiếp';
+    camSwitchBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>';
+    setStatus('frozen', 'Chế độ ảnh tải lên');
+  }
+
+  function exitImageMode(){
+    state.imageQueue.forEach(q=>{ try{ URL.revokeObjectURL(q.url); }catch(e){} });
+    state.imageQueue = [];
+    state.currentImgEl = null;
+    state.inputMode = 'camera';
+    state.live = true;
+    document.getElementById('stage').classList.remove('image-mode');
+    imageNavChip.style.display = 'none';
+    saveHistBtn.style.display = 'flex';
+    camSwitchBtn.title = '';
+    camSwitchBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>';
+    state.recentTotals = [];
+    updateCaptureBtnUI();
+    requestAnimationFrame(renderLoop);
+  }
+
+  camSwitchBtn.onclick = ()=>{
+    if(state.inputMode === 'image'){
+      exitImageMode();
+    } else {
+      state.facingMode = state.facingMode === 'environment' ? 'user' : 'environment';
+      startCamera();
+    }
+  };
+
+  function loadImageAtIndex(i){
+    if(i<0 || i>=state.imageQueue.length) return;
+    state.imageIndex = i;
+    const img = new Image();
+    img.onload = ()=>{
+      state.currentImgEl = img;
+      processCurrentImage();
+      updateImageNavUI();
+    };
+    img.src = state.imageQueue[i].url;
+  }
+
+  function updateImageNavUI(){
+    const total = state.imageQueue.length;
+    imageNavLabel.textContent = 'Ảnh ' + (state.imageIndex+1) + '/' + total;
+    prevImgBtn.disabled = state.imageIndex <= 0;
+    nextImgBtn.disabled = state.imageIndex >= total-1;
+    captureBtnText.textContent = state.imageIndex >= total-1 ? 'Lưu (ảnh cuối)' : 'Lưu & ảnh tiếp theo';
+  }
+
+  prevImgBtn.onclick = ()=>{ if(state.imageIndex>0) loadImageAtIndex(state.imageIndex-1); };
+  nextImgBtn.onclick = ()=>{ if(state.imageIndex < state.imageQueue.length-1) loadImageAtIndex(state.imageIndex+1); };
+
+  function saveCurrentToHistory(){
+    const entry = {count: state.displayCount || state.currentCount, time: new Date()};
+    state.history.unshift(entry);
+    flashSave();
+  }
+
+  // ==================== Settings wiring ====================
+  modeSeg.querySelectorAll('button').forEach(btn=>{
+    btn.onclick = ()=>{
+      modeSeg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.mode = btn.dataset.mode;
+      afterSettingsChange();
+    };
+  });
+
+  threshMethodSeg.querySelectorAll('button').forEach(btn=>{
+    btn.onclick = ()=>{
+      threshMethodSeg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.threshMethod = btn.dataset.method;
+      adaptiveField.style.display = state.threshMethod==='adaptive' ? 'block' : 'none';
+      globalField.style.display = state.threshMethod==='global' ? 'block' : 'none';
+      afterSettingsChange();
+    };
+  });
+
+  adaptiveCSlider.oninput = ()=>{
+    state.adaptiveC = parseInt(adaptiveCSlider.value,10);
+    adaptiveCVal.textContent = state.adaptiveC;
+    afterSettingsChange();
+  };
+  thresholdSlider.oninput = ()=>{
+    state.threshold = parseInt(thresholdSlider.value,10);
+    thresholdVal.textContent = state.threshold;
+    afterSettingsChange();
+  };
+  minAreaSlider.oninput = ()=>{
+    state.minArea = parseInt(minAreaSlider.value,10);
+    minAreaVal.textContent = state.minArea + ' px²';
+    afterSettingsChange();
+  };
+  morphToggle.onchange = ()=>{ state.morphCleanup = morphToggle.checked; afterSettingsChange(); };
+  bubbleToggle.onchange = ()=>{ state.bubbleFilter = bubbleToggle.checked; afterSettingsChange(); };
+
+  splitSeg.querySelectorAll('button').forEach(btn=>{
+    btn.onclick = ()=>{
+      splitSeg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.splitMethod = btn.dataset.split;
+      const show = state.splitMethod !== 'off';
+      singleAreaField.style.opacity = show ? '1' : '0.4';
+      singleAreaField.style.pointerEvents = show ? 'auto' : 'none';
+      afterSettingsChange();
+    };
+  });
+
+  singleAreaSlider.oninput = ()=>{
+    const v = parseInt(singleAreaSlider.value,10);
+    state.singleArea = v;
+    singleAreaVal.textContent = v === 0 ? 'Tự động' : (v + ' px²');
+    afterSettingsChange();
+  };
+  smoothToggle.onchange = ()=>{ state.smoothCount = smoothToggle.checked; updateCountDisplay(); };
+  overlayToggle.onchange = ()=>{ state.showOverlay = overlayToggle.checked; afterSettingsChange(); if(state.inputMode!=='image'){ /* live loop will redraw next frame */ } };
+
+  resetSettingsBtn.onclick = ()=>{
+    state.mode='dark-on-light'; state.threshMethod='adaptive'; state.adaptiveC=8; state.threshold=120;
+    state.minArea=6; state.morphCleanup=true; state.bubbleFilter=false; state.splitMethod='watershed';
+    state.singleArea=0; state.smoothCount=true; state.showOverlay=true;
+    modeSeg.querySelectorAll('button').forEach((b,i)=>b.classList.toggle('active', i===0));
+    threshMethodSeg.querySelectorAll('button').forEach((b,i)=>b.classList.toggle('active', i===0));
+    adaptiveField.style.display='block'; globalField.style.display='none';
+    adaptiveCSlider.value=8; adaptiveCVal.textContent='8';
+    thresholdSlider.value=120; thresholdVal.textContent='120';
+    minAreaSlider.value=6; minAreaVal.textContent='6 px²';
+    morphToggle.checked=true; bubbleToggle.checked=false;
+    splitSeg.querySelectorAll('button').forEach((b,i)=>b.classList.toggle('active', i===0));
+    singleAreaField.style.opacity='1'; singleAreaField.style.pointerEvents='auto';
+    singleAreaSlider.value=0; singleAreaVal.textContent='Tự động';
+    smoothToggle.checked=true; overlayToggle.checked=true;
+    afterSettingsChange();
+  };
+
+  // ==================== History / batch ====================
+  function formatTime(d){ return d.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit', second:'2-digit'}); }
+
+  saveHistBtn.onclick = ()=>{
+    const entry = {count: state.displayCount || state.currentCount, time: new Date()};
+    state.history.unshift(entry);
+    flashSave();
+    renderHistory();
+  };
+  function flashSave(){
+    saveHistBtn.style.background = 'var(--aqua-glow)';
+    saveHistBtn.style.color = '#052421';
+    setTimeout(()=>{ saveHistBtn.style.background=''; saveHistBtn.style.color=''; }, 260);
+  }
+
+  function renderHistory(){
+    historyList.innerHTML = '';
+    if(state.history.length === 0){
+      historyEmpty.style.display = 'block';
+    } else {
+      historyEmpty.style.display = 'none';
+      state.history.forEach((h, idx)=>{
+        const div = document.createElement('div');
+        div.className = 'hist-item';
+        div.innerHTML = '<div class="left"><div class="n">'+h.count+' con</div><div class="t">'+formatTime(h.time)+'</div></div><div class="del" data-idx="'+idx+'">✕</div>';
+        historyList.appendChild(div);
+      });
+      historyList.querySelectorAll('.del').forEach(el=>{
+        el.onclick = ()=>{ state.history.splice(parseInt(el.dataset.idx,10),1); renderHistory(); };
+      });
+    }
+    const total = state.history.reduce((s,h)=>s+h.count,0);
+    historyTotalNum.textContent = total + ' con';
+    updateEstimate();
+  }
+
+  clearHistBtn.onclick = ()=>{ state.history = []; renderHistory(); };
+  newBatchBtn.onclick = ()=>{ state.history = []; renderHistory(); };
+
+  function updateEstimate(){
+    const total = state.history.reduce((s,h)=>s+h.count,0);
+    const mult = Math.max(1, parseInt(multiplierInput.value,10) || 1);
+    estimateResult.textContent = '≈ ' + (total*mult).toLocaleString('vi-VN') + ' con';
+  }
+  multiplierInput.oninput = updateEstimate;
+
+  // ==================== Init ====================
+  singleAreaVal.textContent = 'Tự động';
+  startCamera();
+
+})();
+</script>
+</body>
+</html>
